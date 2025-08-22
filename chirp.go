@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gaba-bouliva/chirpy-1/internal/auth"
 	"github.com/gaba-bouliva/chirpy-1/internal/database"
 	"github.com/google/uuid"
 )
@@ -23,14 +24,25 @@ type Chirp struct {
 
 func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) {
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid refresh token auth headers bearer token", err)
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Counldn't validate JWT", err)
+		return
+	}
+
 	type parameters struct {
-		Body   string    `json:"body"`
-		UserId uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
@@ -44,7 +56,7 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		ID:     uuid.New(),
 		Body:   cleaned,
-		UserID: params.UserId,
+		UserID: userId,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)
@@ -61,6 +73,11 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) handleGetAllChirps(w http.ResponseWriter, r *http.Request) {
+	_, err := auth.GetUserIdFromReq(r, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "coundn't identify user from authorization header bearer token", err)
+		return
+	}
 	chirps, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unexpected error occured", err)
@@ -70,6 +87,11 @@ func (cfg *apiConfig) handleGetAllChirps(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) handleGetAChirp(w http.ResponseWriter, r *http.Request) {
+	_, err := auth.GetUserIdFromReq(r, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "coundn't identify user from authorization header bearer token", err)
+		return
+	}
 	var id string = r.PathValue("id")
 	chirpId, err := uuid.Parse(id)
 	if len(id) == 0 || err != nil {
