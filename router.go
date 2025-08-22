@@ -17,6 +17,9 @@ func (cfg *apiConfig) Router() http.Handler {
 	apiRouter.Get("/chirps", cfg.handleGetAllChirps)
 	apiRouter.Get("/chirps/{id}", cfg.handleGetAChirp)
 	apiRouter.Post("/users", cfg.handleCreateUser)
+	apiRouter.Post("/login", cfg.handleLogin)
+	apiRouter.Post("/refresh", cfg.handleRefreshToken)
+	apiRouter.Post("/revoke", cfg.handleRevokeToken)
 	apiRouter.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
